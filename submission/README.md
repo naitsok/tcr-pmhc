@@ -1,6 +1,6 @@
 # Trituration
 
-Our team is from ... and we think proteins are cool 🙌
+Our team is from Russia and Finland. And we think bioinformatic is cool!
 
 ### Project Description
 We are working on the `tcr-pmhc` challenge.
