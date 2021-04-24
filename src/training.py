@@ -65,15 +65,12 @@ print("X sequences " , X_seqs.shape, ". Y data ", Y_data.shape)
 bat_size = 16
 print("\nSetting batch-size to", bat_size)
 
-val_set_after = 300
-print("Setting vlaidation set after batch number ", val_set_after)
-
-def get_train_batch(Y_data, val_set_after):
+def get_train_batch(Y_data):
     saved_batch_size = 16
     batch_size = 64
     step = int(batch_size / saved_batch_size)
     y_list = Y_data.iloc[:, 0].tolist()
-    for i in range(0, len(y_list), step): #val_set_after):
+    for i in range(0, int(len(y_list) / saved_batch_size), step): #val_set_after):
         print("Training batch: ", i + 1)
         X_tcr = np.load("./data/train/tcra/embedding_batch_" + str(i) + ".npy")
         X_pep = np.load("./data/train/peptide/embedding_batch_" + str(i) + ".npy")
@@ -86,10 +83,10 @@ def get_train_batch(Y_data, val_set_after):
             
         yield [X_tcr, X_pep, Y_data]
 
-def get_val_batch(Y_data, val_set_after):
+def get_val_batch(Y_data):
     batch_size = 16
     y_list_val = Y_data.iloc[:, 0].tolist()
-    for j in range(val_set_after, val_set_after + 10): # int(len(y_list) / batch_size)):
+    for j in range(270, 290): # int(len(y_list) / batch_size)):
         print("Validation batch: ", j + 1)
         X_tcr_val = np.load("./data/train/tcra/embedding_batch_" + str(j) + ".npy")
         X_pep_val = np.load("./data/train/peptide/embedding_batch_" + str(j) + ".npy")
@@ -150,7 +147,7 @@ for epoch in range(num_epochs):
     net.train()
     train_preds, train_targs = [], [] 
     train_length = 0
-    for k, data in enumerate(get_train_batch(Y_data, val_set_after)):
+    for k, data in enumerate(get_train_batch(Y_data)):
         # X_batch =  data.float().detach().requires_grad_(True)
         X_tcr_batch = torch.tensor(data[0], dtype = torch.float).to(device)
         X_pep_batch = torch.tensor(data[1], dtype = torch.float).to(device)
@@ -181,7 +178,7 @@ for epoch in range(num_epochs):
     val_preds, val_targs = [], []
     with torch.no_grad():
         val_length = 0
-        for k, data_val in enumerate(get_val_batch(Y_data, val_set_after)):
+        for k, data_val in enumerate(get_val_batch(Y_data)):
             # x_batch_val = data.float().detach()
             # y_batch_val = target.float().detach().unsqueeze(1)
             # x_batch_val, y_batch_val = x_batch_val.to(device), y_batch_val.to(device)
