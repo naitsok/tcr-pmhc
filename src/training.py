@@ -69,14 +69,15 @@ val_set_after = 300
 print("Setting vlaidation set after batch number ", val_set_after)
 
 def get_train_batch(Y_data, val_set_after):
+    saved_batch_size = 16
     batch_size = 64
-    step = int(batch_size / 16)
+    step = int(batch_size / saved_batch_size)
     y_list = Y_data.iloc[:, 0].tolist()
     for i in range(0, len(y_list), step): #val_set_after):
         print("Training batch: ", i + 1)
         X_tcr = np.load("./data/train/tcra/embedding_batch_" + str(i) + ".npy")
         X_pep = np.load("./data/train/peptide/embedding_batch_" + str(i) + ".npy")
-        Y_data = np.array(y_list[i * batch_size:(i + 1) * batch_size])
+        Y_data = np.array(y_list[i * saved_batch_size:(i + step) * saved_batch_size])
         for j in range(1, step):
             data = np.load("./data/train/tcra/embedding_batch_" + str(i + j) + ".npy")
             # print(i+j)
@@ -134,7 +135,7 @@ optimizer = optim.SGD(net.parameters(), lr=learning_rate)
 
 print("Training")
 
-num_epochs = 10
+num_epochs = 3
 
 train_acc, train_loss = [], []
 valid_acc, valid_loss = [], []
