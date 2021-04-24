@@ -1,4 +1,4 @@
-# Add-Your-Team-Name-Here
+# Trituration
 
 Our team is from ... and we think proteins are cool 🙌
 
