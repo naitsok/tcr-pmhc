@@ -17,7 +17,7 @@ from sklearn.metrics import accuracy_score
 ###############################
 ###    Load data            ###
 ###############################
-
+"""
 data_list = []
 target_list = []
 
@@ -56,11 +56,47 @@ for i in range(len(X_train)):
 val_ds = []
 for i in range(len(X_val)):
     val_ds.append([np.transpose(X_val[i]), y_val[i]])
+"""
 
-bat_size = 64
-print("\nNOTE:\nSetting batch-size to", bat_size)
-train_ldr = torch.utils.data.DataLoader(train_ds,batch_size=bat_size, shuffle=True)
-val_ldr = torch.utils.data.DataLoader(val_ds,batch_size=bat_size, shuffle=True)
+X_seqs = pd.read_csv("./data/train/X_seqs.csv", index_col=0)
+Y_data = pd.read_csv("./data/train/Y_data.csv", index_col=0)
+print("X sequences " , X_seqs.shape, ". Y data ", Y_data.shape)
+
+bat_size = 16
+print("\nSetting batch-size to", bat_size)
+
+val_set_after = 300
+print("Setting vlaidation set after batch number ", val_set_after)
+
+def get_train_batch(Y_data, val_set_after):
+    batch_size = 64
+    step = int(batch_size / 16)
+    y_list = Y_data.iloc[:, 0].tolist()
+    for i in range(0, len(y_list), step): #val_set_after):
+        print("Training batch: ", i + 1)
+        X_tcr = np.load("./data/train/tcra/embedding_batch_" + str(i) + ".npy")
+        X_pep = np.load("./data/train/peptide/embedding_batch_" + str(i) + ".npy")
+        Y_data = np.array(y_list[i * batch_size:(i + 1) * batch_size])
+        for j in range(1, step):
+            data = np.load("./data/train/tcra/embedding_batch_" + str(i + j) + ".npy")
+            print(i+j)
+            X_tcr = np.concatenate((X_tcr, np.load("./data/train/tcra/embedding_batch_" + str(i + j) + ".npy")), axis=0)
+            X_pep = np.concatenate((X_pep, np.load("./data/train/peptide/embedding_batch_" + str(i + j) + ".npy")), axis=0)
+            
+        yield [X_tcr, X_pep, Y_data]
+
+def get_val_batch(Y_data, val_set_after):
+    batch_size = 16
+    y_list_val = Y_data.iloc[:, 0].tolist()
+    for j in range(val_set_after, val_set_after + 10): # int(len(y_list) / batch_size)):
+        print("Validation batch: ", j + 1)
+        X_tcr_val = np.load("./data/train/tcra/embedding_batch_" + str(j) + ".npy")
+        X_pep_val = np.load("./data/train/peptide/embedding_batch_" + str(j) + ".npy")
+        Y_data_val = np.array(y_list_val[j * batch_size:(j + 1) * batch_size])
+        yield [X_tcr_val, X_pep_val, Y_data_val]
+
+# train_ldr = torch.utils.data.DataLoader(train_ds,batch_size=bat_size, shuffle=True)
+# val_ldr = torch.utils.data.DataLoader(val_ds,batch_size=bat_size, shuffle=True)
 
 
 # Set device
@@ -77,41 +113,14 @@ print("Using device (CPU/GPU):", device)
 print("Initializing network")
 
 # Hyperparameters
-input_size = 420
-num_classes = 1
+# input_size = 420
+# num_classes = 1
 learning_rate = 0.01
 
-from model import Net
-
-'''class Net(nn.Module):
-    def __init__(self,  num_classes):
-        super(Net, self).__init__()       
-        self.conv1 = nn.Conv1d(in_channels=54, out_channels=100, kernel_size=3, stride=2, padding=1)
-        torch.nn.init.kaiming_uniform_(self.conv1.weight)
-        self.pool = nn.MaxPool1d(kernel_size=2, stride=2)
-        self.conv1_bn = nn.BatchNorm1d(100)
-        
-        self.conv2 = nn.Conv1d(in_channels=100, out_channels=100, kernel_size=3, stride=2, padding=1)
-        torch.nn.init.kaiming_uniform_(self.conv2.weight)
-        self.conv2_bn = nn.BatchNorm1d(100)
-        
-        self.fc1 = nn.Linear(2600, num_classes)
-        torch.nn.init.xavier_uniform_(self.fc1.weight)
-        
-    def forward(self, x):      
-        x = self.pool(F.relu(self.conv1(x)))
-        x = self.conv1_bn(x)
-        
-        x = self.pool(F.relu(self.conv2(x)))
-        x = self.conv2_bn(x)
-        
-        x = x.view(x.size(0), -1)
-        x = torch.sigmoid(self.fc1(x))
-        
-        return x'''
+from model import CatCNN
     
 # Initialize network
-net = Net(num_classes=num_classes).to(device)
+net = CatCNN().to(device)
 
 # Loss and optimizer
 criterion = nn.BCELoss()
@@ -135,16 +144,23 @@ val_losses = []
 for epoch in range(num_epochs):
     cur_loss = 0
     val_loss = 0
-    
+    print("\nEpoch: ", epoch + 1)
+
     net.train()
     train_preds, train_targs = [], [] 
-    for batch_idx, (data, target) in enumerate(train_ldr):
-        X_batch =  data.float().detach().requires_grad_(True)
-        target_batch = torch.tensor(np.array(target), dtype = torch.float).unsqueeze(1)
-        X_batch, target_batch = X_batch.to(device), target_batch.to(device)
+    train_length = 0
+    for k, data in enumerate(get_train_batch(Y_data, val_set_after)):
+        # X_batch =  data.float().detach().requires_grad_(True)
+        X_tcr_batch = torch.tensor(data[0], dtype = torch.float).to(device)
+        X_pep_batch = torch.tensor(data[1], dtype = torch.float).to(device)
+        target_batch = torch.tensor(data[2], dtype = torch.float).unsqueeze(1).to(device)
+        # target_batch = torch.tensor(np.array(target), dtype = torch.float).unsqueeze(1)
+        # X_batch, target_batch = X_batch.to(device), target_batch.to(device)
+        
         
         optimizer.zero_grad()
-        output = net(X_batch)
+        # output = net(X_batch)
+        output = net(X_tcr_batch, X_pep_batch)
         
         batch_loss = criterion(output, target_batch)
         batch_loss.backward()
@@ -154,30 +170,37 @@ for epoch in range(num_epochs):
         train_targs += list(np.array(target_batch.cpu()))
         train_preds += list(preds.data.numpy().flatten())
         cur_loss += batch_loss.detach()
+        train_length += 1
 
-    losses.append(cur_loss / len(train_ldr.dataset))
+    losses.append(cur_loss / train_length)
         
     
     net.eval()
     ### Evaluate validation
     val_preds, val_targs = [], []
     with torch.no_grad():
-        for batch_idx, (data, target) in enumerate(val_ldr): ###
-            x_batch_val = data.float().detach()
-            y_batch_val = target.float().detach().unsqueeze(1)
-            x_batch_val, y_batch_val = x_batch_val.to(device), y_batch_val.to(device)
+        val_length = 0
+        for k, data_val in enumerate(get_val_batch(Y_data, val_set_after)):
+            # x_batch_val = data.float().detach()
+            # y_batch_val = target.float().detach().unsqueeze(1)
+            # x_batch_val, y_batch_val = x_batch_val.to(device), y_batch_val.to(device)
+            X_tcr_batch_val = torch.tensor(data_val[0], dtype = torch.float).to(device)
+            X_pep_batch_val = torch.tensor(data_val[1], dtype = torch.float).to(device)
+            target_batch = torch.tensor(data_val[2], dtype = torch.float).unsqueeze(1).to(device)
             
-            output = net(x_batch_val)
+            # output = net(X_batch)
+            output = net(X_tcr_batch_val, X_pep_batch_val)
             
-            val_batch_loss = criterion(output, y_batch_val)
+            val_batch_loss = criterion(output, target_batch)
             
             preds = np.round(output.cpu().detach())
             val_preds += list(preds.data.numpy().flatten()) 
-            val_targs += list(np.array(y_batch_val.cpu()))
+            val_targs += list(np.array(target_batch.cpu()))
             val_loss += val_batch_loss.detach()
+            val_length += 1
             
-        val_losses.append(val_loss / len(val_ldr.dataset))
-        print("\nEpoch:", epoch+1)
+        val_losses.append(val_loss / val_length)
+        
         
         train_acc_cur = accuracy_score(train_targs, train_preds)  
         valid_acc_cur = accuracy_score(val_targs, val_preds) 
@@ -188,6 +211,7 @@ for epoch in range(num_epochs):
         from sklearn.metrics import matthews_corrcoef
         print("Training loss:", losses[-1].item(), "Validation loss:", val_losses[-1].item(), end = "\n")
         print("MCC Train:", matthews_corrcoef(train_targs, train_preds), "MCC val:", matthews_corrcoef(val_targs, val_preds))
+        print()
         
 print('\nFinished Training ...')
 

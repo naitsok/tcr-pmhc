@@ -13,14 +13,12 @@ import torch.nn.functional as F  # All functions that don't have any parameters
 from sklearn.metrics import accuracy_score
 
 # Needed to predict
-from model import Net
+from model import CatCNN
 
 parser = argparse.ArgumentParser()
 parser.add_argument('--input-zip')
 args = parser.parse_args()
 print(args)
-
-# input_zip = '../submission/input.zip'
 
 # Load files
 filenames = []
@@ -43,27 +41,48 @@ X_test = np.concatenate(data_list[:])
 nsamples, nx, ny = X_test.shape
 print("test set shape:", nsamples,nx,ny)
 
-test_ds = []
-for i in range(len(X_test)):
-    test_ds.append([np.transpose(X_test[i])])
+# embed data, takes long time
+from embed_sequences import extract_sequences, embed_list_and_save
+X_seqs = extract_sequences(X_test)
+# embed_list_and_save(X_seqs["tcra"], 224, 1, "tcra_test")
+# embed_list_and_save(X_seqs["peptide"], 12, 1, "peptide_test")
 
-bat_size = 64
-print("\nNOTE:\nSetting batch-size to", bat_size)
-test_ldr = torch.utils.data.DataLoader(test_ds,batch_size=bat_size, shuffle=False)
+def get_test_batch():
+    # batch_size = 16
+    for i in range(10): #X_test.shape[0]): 
+        print("Validation batch: ", i + 1)
+        X_tcr_test = np.load("./data/train/tcra_test/embedding_batch_" + str(i) + ".npy")
+        X_pep_test = np.load("./data/train/peptide_test/embedding_batch_" + str(i) + ".npy")
+        '''for j in range(1, 4):
+            data = np.load("../data/train/tcra/embedding_batch_" + str(i + j) + ".npy")
+            print(i+j)
+            X_tcr_test = np.concatenate((X_tcr_test, np.load("./data/train/tcra_test/embedding_batch_" + str(i + j) + ".npy")), axis=0)
+            X_pep_test = np.concatenate((X_pep_test, np.load("./data/train/peptide_test/embedding_batch_" + str(i + j) + ".npy")), axis=0)'''
+        yield [X_tcr_test, X_pep_test]
+
+'''test_ds = []
+for i in range(len(X_test)):
+    test_ds.append([np.transpose(X_test[i])])'''
+
+# bat_size = 64
+# print("\nNOTE:\nSetting batch-size to", bat_size)
+# test_ldr = torch.utils.data.DataLoader(test_ds,batch_size=bat_size, shuffle=False)
 
 # Set device
 device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 print("Using device (CPU/GPU):", device)
 
-def predict(net, test_ldr):
+def predict(net):
     net.eval()
     test_preds = []
     with torch.no_grad():
-        for batch_idx, data in enumerate(test_ldr): ###
-            x_batch_val = data[0].float().detach()
+        for batch_idx, data in enumerate(get_test_batch()): ###
+            # x_batch_val = data[0].float().detach()
             # x_batch_val = x_batch_val.to(device)
+            X_tcr_batch_val = torch.tensor(data[0], dtype = torch.float).to(device)
+            X_pep_batch_val = torch.tensor(data[1], dtype = torch.float).to(device)
 
-            output = net(x_batch_val)
+            output = net(X_tcr_batch_val, X_pep_batch_val)
             preds = np.round(output.cpu().detach())
             test_preds += list(preds.data.numpy().flatten()) 
         
@@ -72,14 +91,14 @@ def predict(net, test_ldr):
     
 
 # import trained model
-model = Net(num_classes = 1)
+model = CatCNN().to(device)
 model.load_state_dict(torch.load("./model.pt"))
 model.eval()
 
-y_pred = predict(model, test_ldr)
+y_pred = predict(model)
 
 # Write y_true, y_pred to disk
-outname = "../submission/predictions.csv"
+outname = "./submission/predictions_catcnn.csv"
 print("\nSaving TEST set y_pred to", outname)
 df_performance = pd.DataFrame({"ix": range(len(y_pred)), "prediction": y_pred},)
 df_performance.to_csv(outname, index=False)

@@ -57,7 +57,7 @@ def load_data():
     data_list = []
     target_list = []
 
-    for fp in glob.glob("../data/train/*input.npz"):
+    for fp in glob.glob("./data/train/*input.npz"):
         data = np.load(fp)["arr_0"]
         targets = np.load(fp.replace("input", "labels"))["arr_0"]
         
@@ -75,8 +75,8 @@ def load_data():
 def convert_to_sequences_save_csv():
     X_data, Y_data = load_data()    
     X_seqs = extract_sequences(X_data)
-    X_seqs.to_csv("../data/train/X_seqs.csv")
-    pd.DataFrame(Y_data).to_csv("../data/train/Y_data.csv")
+    X_seqs.to_csv("./data/train/X_seqs.csv")
+    pd.DataFrame(Y_data).to_csv("./data/train/Y_data.csv")
 
 
 #####
@@ -86,13 +86,13 @@ def convert_to_sequences_save_csv():
 def embed_list_and_save(seq_lst, amino_acid_length, batch_size, name):
     # lst - 1d list of amino acid sequences
 
-    folder = "../data/train/" + name
+    folder = "./data/train/" + name
     if (not os.path.exists(folder)):
         os.mkdir(folder)
 
     from allennlp.commands.elmo import ElmoEmbedder
 
-    model_dir = Path('../data/seqvec')
+    model_dir = Path('./data/seqvec')
     weights = model_dir / 'weights.hdf5'
     options = model_dir / 'options.json'
     embedder = ElmoEmbedder(options, weights, cuda_device=0)
@@ -108,15 +108,18 @@ def embed_list_and_save(seq_lst, amino_acid_length, batch_size, name):
             # print("Embedding sequence " + str(i) + " out of " + str(batch_size))
             embedding[i, :, :len(list(seq)), :] = embedder.embed_sentence(list(seq))
 
-        np.save("../data/train/" + name + "/embedding_batch_" + str(j), embedding)
+        np.save("./data/train/" + name + "/embedding_batch_" + str(j), embedding)
 
 
 def embed_all():
-    X_data = pd.read_csv("../data/train/X_seqs.csv", index_col=0)
+    X_data = pd.read_csv("./data/train/X_seqs.csv", index_col=0)
     print(X_data.shape)
-    embed_list_and_save(X_data["peptide"], 12, 16, "peptide")
-    embed_list_and_save(X_data["tcra"], 224, 16, "tcra")
-    embed_list_and_save(X_data["MHC"], 180, 16, "MHC")
+
+    batch_size = 16
+
+    embed_list_and_save(X_data["peptide"], 12, batch_size, "peptide")
+    embed_list_and_save(X_data["tcra"], 224, batch_size, "tcra")
+    embed_list_and_save(X_data["MHC"], 180, batch_size, "MHC")
 
 
 if __name__ == '__main__':
