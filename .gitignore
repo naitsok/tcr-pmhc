@@ -2,6 +2,7 @@
 bak/
 *.npz
 data/train/*
+example_notebook.ipynb
 
 # Byte-compiled / optimized / DLL files
 __pycache__/
