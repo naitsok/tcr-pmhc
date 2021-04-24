@@ -14,6 +14,13 @@ from sklearn.metrics import accuracy_score
 
 # ML architecture
 
+
+class CatCNN(nn.Module):
+    num_classes = 1
+    def __init__(self):
+        super(CatCNN, self).__init__()
+
+
 class Net(nn.Module):
     num_classes = 1
     def __init__(self,  num_classes):
@@ -30,7 +37,7 @@ class Net(nn.Module):
         self.fc1 = nn.Linear(2600, num_classes)
         torch.nn.init.xavier_uniform_(self.fc1.weight)
         
-    def forward(self, x):      
+    def forward(self, x):    
         x = self.pool(F.relu(self.conv1(x)))
         x = self.conv1_bn(x)
         

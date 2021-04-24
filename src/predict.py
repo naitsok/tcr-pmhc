@@ -20,6 +20,8 @@ parser.add_argument('--input-zip')
 args = parser.parse_args()
 print(args)
 
+# input_zip = '../submission/input.zip'
+
 # Load files
 filenames = []
 dfs = []
@@ -52,7 +54,6 @@ test_ldr = torch.utils.data.DataLoader(test_ds,batch_size=bat_size, shuffle=Fals
 # Set device
 device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 print("Using device (CPU/GPU):", device)
-#device = torch.device("cpu")
 
 def predict(net, test_ldr):
     net.eval()
@@ -60,26 +61,27 @@ def predict(net, test_ldr):
     with torch.no_grad():
         for batch_idx, data in enumerate(test_ldr): ###
             x_batch_val = data[0].float().detach()
+            # x_batch_val = x_batch_val.to(device)
 
             output = net(x_batch_val)
-            preds = np.round(output.detach())
+            preds = np.round(output.cpu().detach())
             test_preds += list(preds.data.numpy().flatten()) 
         
-    return(test_preds)
+    return (test_preds)
 
     
 
 # import trained model
 model = Net(num_classes = 1)
-model.load_state_dict(torch.load("src/model.pt"))
+model.load_state_dict(torch.load("./model.pt"))
 model.eval()
 
 y_pred = predict(model, test_ldr)
 
 # Write y_true, y_pred to disk
-outname = "predictions.csv"
+outname = "../submission/predictions.csv"
 print("\nSaving TEST set y_pred to", outname)
 df_performance = pd.DataFrame({"ix": range(len(y_pred)), "prediction": y_pred},)
 df_performance.to_csv(outname, index=False)
 
-print(open(outname, 'r').read())
+# print(open(outname, 'r').read())

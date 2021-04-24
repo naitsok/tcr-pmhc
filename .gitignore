@@ -1,8 +1,11 @@
 # Extra
 bak/
 *.npz
-data/train/*
-example_notebook.ipynb
+data/train/
+.vscode/
+*.npy
+data/seqvec
+seqvec.zip
 
 # Byte-compiled / optimized / DLL files
 __pycache__/

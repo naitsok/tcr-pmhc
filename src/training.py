@@ -12,6 +12,8 @@ import torch.optim as optim  # For all Optimization algorithms, SGD, Adam, etc.
 import torch.nn.functional as F  # All functions that don't have any parameters
 from sklearn.metrics import accuracy_score
 
+# torch.cuda.empty_cache()
+
 ###############################
 ###    Load data            ###
 ###############################
@@ -19,7 +21,7 @@ from sklearn.metrics import accuracy_score
 data_list = []
 target_list = []
 
-for fp in glob.glob("data/train/*input.npz"):
+for fp in glob.glob("../data/train/*input.npz"):
     data = np.load(fp)["arr_0"]
     targets = np.load(fp.replace("input", "labels"))["arr_0"]
     
@@ -64,8 +66,7 @@ val_ldr = torch.utils.data.DataLoader(val_ds,batch_size=bat_size, shuffle=True)
 # Set device
 device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 print("Using device (CPU/GPU):", device)
-#device = torch.device("cpu")
-
+# device.empty_cache()
 
 
 
@@ -80,7 +81,9 @@ input_size = 420
 num_classes = 1
 learning_rate = 0.01
 
-class Net(nn.Module):
+from model import Net
+
+'''class Net(nn.Module):
     def __init__(self,  num_classes):
         super(Net, self).__init__()       
         self.conv1 = nn.Conv1d(in_channels=54, out_channels=100, kernel_size=3, stride=2, padding=1)
@@ -105,7 +108,7 @@ class Net(nn.Module):
         x = x.view(x.size(0), -1)
         x = torch.sigmoid(self.fc1(x))
         
-        return x
+        return x'''
     
 # Initialize network
 net = Net(num_classes=num_classes).to(device)
@@ -138,6 +141,7 @@ for epoch in range(num_epochs):
     for batch_idx, (data, target) in enumerate(train_ldr):
         X_batch =  data.float().detach().requires_grad_(True)
         target_batch = torch.tensor(np.array(target), dtype = torch.float).unsqueeze(1)
+        X_batch, target_batch = X_batch.to(device), target_batch.to(device)
         
         optimizer.zero_grad()
         output = net(X_batch)
@@ -161,14 +165,15 @@ for epoch in range(num_epochs):
         for batch_idx, (data, target) in enumerate(val_ldr): ###
             x_batch_val = data.float().detach()
             y_batch_val = target.float().detach().unsqueeze(1)
+            x_batch_val, y_batch_val = x_batch_val.to(device), y_batch_val.to(device)
             
             output = net(x_batch_val)
             
             val_batch_loss = criterion(output, y_batch_val)
             
-            preds = np.round(output.detach())
+            preds = np.round(output.cpu().detach())
             val_preds += list(preds.data.numpy().flatten()) 
-            val_targs += list(np.array(y_batch_val))
+            val_targs += list(np.array(y_batch_val.cpu()))
             val_loss += val_batch_loss.detach()
             
         val_losses.append(val_loss / len(val_ldr.dataset))
@@ -188,4 +193,4 @@ print('\nFinished Training ...')
 
 # Write model to disk for use in predict.py
 print("Saving model to src/model.pt")
-torch.save(net.state_dict(), "src/model.pt")
+torch.save(net.state_dict(), "./model.pt")
