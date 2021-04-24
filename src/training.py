@@ -79,7 +79,7 @@ def get_train_batch(Y_data, val_set_after):
         Y_data = np.array(y_list[i * batch_size:(i + 1) * batch_size])
         for j in range(1, step):
             data = np.load("./data/train/tcra/embedding_batch_" + str(i + j) + ".npy")
-            print(i+j)
+            # print(i+j)
             X_tcr = np.concatenate((X_tcr, np.load("./data/train/tcra/embedding_batch_" + str(i + j) + ".npy")), axis=0)
             X_pep = np.concatenate((X_pep, np.load("./data/train/peptide/embedding_batch_" + str(i + j) + ".npy")), axis=0)
             
@@ -134,7 +134,7 @@ optimizer = optim.SGD(net.parameters(), lr=learning_rate)
 
 print("Training")
 
-num_epochs = 5
+num_epochs = 10
 
 train_acc, train_loss = [], []
 valid_acc, valid_loss = [], []
