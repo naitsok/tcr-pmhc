@@ -1,7 +1,7 @@
 # Extra
 bak/
 *.npz
-data/train/
+data/train/*
 
 # Byte-compiled / optimized / DLL files
 __pycache__/
