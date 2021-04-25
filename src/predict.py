@@ -92,15 +92,15 @@ def predict(net):
 
 # import trained model
 model = CatCNN().to(device)
-model.load_state_dict(torch.load("./model.pt"))
+model.load_state_dict(torch.load("src/model_kos.pt"))
 model.eval()
 
 y_pred = predict(model)
 
 # Write y_true, y_pred to disk
-outname = "./submission/predictions_catcnn.csv"
+outname = "./submission/predictions.csv"
 print("\nSaving TEST set y_pred to", outname)
 df_performance = pd.DataFrame({"ix": range(len(y_pred)), "prediction": y_pred},)
 df_performance.to_csv(outname, index=False)
 
-# print(open(outname, 'r').read())
+print(open(outname, 'r').read())
